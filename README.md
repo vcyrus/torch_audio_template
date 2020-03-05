@@ -1,2 +1,10 @@
-# bird_activity
-A simple convolutional neural network classifier for presence of bird activity in spectrogram frames
+# Torch Audio Boilerplate
+A boilerplate project for deep learning for audio in PyTorch
+
+## Feature extraction
+
+## Preprocessing
+
+## Data Loaders
+
+## Model templates
