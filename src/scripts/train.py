@@ -6,14 +6,34 @@ import numpy as np
 from torch.utils.data import DataLoader, random_split
 
 
-
 from src.datasets.TFPatchDataset import TFPatchDataset
 
+from src.models import ConvNet
 
+def train_epoch(model, criterion, optimizer, train_gen, cuda_device):
+    running_loss = 0.0
+    for i, batch in enumerate(train_gen, 0):
+        optimiser.zero_grad()
 
+        features, y = batch  
 
+        if cuda_device is not None:
+            features = features.to(device=cuda_device)
+            y = labels.to(device=cuda_device)
+        
+        _y = model(features)
+        loss = criterion(_y, y)
 
-def train(datasets, batch_size, n_epochs):
+        loss.backward()
+        optimizer.step()
+        epoch_loss += loss_item 
+        if i % 100 == 99: # print loss after 100 batches
+            print('[%d, %5d] loss: %.3f' %
+                  (epoch + 1, i + 1, running_loss / 100))
+            running_loss = 0.0
+    return none
+
+def train(datasets, batch_size, n_epochs, lr, gpu, out_path):
     params_train = {
         "batch_size": batch_size,
         "shuffle": True,
@@ -21,22 +41,41 @@ def train(datasets, batch_size, n_epochs):
     }
     train_gen = data.DataLoader(datasets['train'], **params_train)
     val_gen   = data.DataLoader(datasets['val'], **params_train)
+  
+    cuda_device = cuda.device('cuda' if gpu else 'cpu')
 
-def get_dataset(feature_dir, labels, patch_len, patch_hop):
+    model = ConvNet()
+    model.to(cuda_device)
+
+    criterion = nn.BCELoss()
+    optimizer = optim.Adam(model.parameters(), lr)
+
+    for epoch in range(n_epochs):
+        train_epoch(model, criterion, optimizer, train_gen, cuda_device)
+
+        # validation
+        print("Epoch %d/%d - loss: %.3f, val_loss: %.3f" % 
+              (epoch + 1, n_epochs, train_loss, val_loss)
+
+
+    print('Finished training')
+
+    # Save the model
+    if out_path:
+        torch.save(model.state_dict(), out_path)
+            
+
+def get_datasets(feature_dir, labels, patch_len, patch_hop, val_split):
     dataset = TFPatchDataset(feature_dir, label_dir, patch_len, patch_hop)
-    return dataset
 
-def split_dataset(dataset, val_split):
-  ''' Generate training and validation torch.data.Dataset instances
-      given a torch.data.Dataset and validation split proportion
-  '''
-  dataset_len = len(dataset)
-  n_val = int(val_split * dataset_len)a
-  n_train = dataset_len - n_val
+    dataset_len = len(dataset)
+    n_val = int(val_split * dataset_len)
+    n_train = dataset_len - n_val
+  
+    train_data, val_data = random_split(dataset, [n_train, n_val])
 
-  train_data, val_data = random_split(dataset, [n_train, n_val])
-  return train_data, val_data
-
+    datasets = {'train': train_data, 'val': val_data}
+    return datasets
 
 def parse_args():
     parser = ArgumentParser(
@@ -72,7 +111,24 @@ def parse_args():
             type=int
             help="Number of training epochs"
         )
-
+        parser.add_argument(
+            "-lr",
+            default=0.01, 
+            type=float,
+            help="Optimizer learning rate"
+        )
+        parser.add_argument(
+            "-gpu",
+            default=False,
+            type=bool,
+            help="Use current CUDA GPU device if True, CPU if unspecified"
+        )
+        parser.add_argument(
+            "--out_path",
+            default=None,
+            type=str,
+            help="Path to save the trained model to"
+        )
 
 if __name__ == "__main__":
     args = parse_args()
@@ -80,16 +136,19 @@ if __name__ == "__main__":
     # dataset loader
     # split datar
     # model
-    dataset = get_dataset(
+    datasets = get_datasets(
                   args.feature_dir, 
                   args.label_dir, 
                   args.patch_len,
-                  args.patch_hop
+                  args.patch_hop,
+                  args.val_split
               )
-    datasets['train'], datasets['val'] = split_dataset(dataset, args.val_split)
 
     train(
         datasets, 
         args.batch_size,
-        args.n_epochs
+        args.n_epochs,
+        args.lr,
+        args.gpu,
+        args.out_path
     )
