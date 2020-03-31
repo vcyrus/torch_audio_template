@@ -38,12 +38,3 @@ def modify_file_length(audio, input_fixed_length):
         audio = audio_dup[:input_fixed_length]
 
     return audio
-
-
-
-
-
-
-
-
-
