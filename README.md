@@ -5,6 +5,6 @@ A boilerplate project for deep learning for audio in PyTorch
 
 ## Preprocessing
 
-## Data Loaders
+## Data loading
 
 ## Model templates
