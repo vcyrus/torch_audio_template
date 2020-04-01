@@ -5,35 +5,40 @@ import numpy as np
 
 from torch.utils.data import DataLoader, random_split
 
+from torch.autograd import Variable
 
 from src.datasets.TFPatchDataset import TFPatchDataset
 
 from src.models import ConvNet
 
-def train_epoch(model, criterion, optimizer, train_gen, cuda_device):
+def train_epoch(model, criterion, optimizer, train_gen, cuda_device, phase=None):
     running_loss = 0.0
+    model.train()
     for i, batch in enumerate(train_gen, 0):
         optimiser.zero_grad()
 
-        features, y = batch  
+        X, y = batch["features"], batch["labels"]
 
         if cuda_device is not None:
-            features = features.to(device=cuda_device)
-            y = labels.to(device=cuda_device)
+            X = Variable(X.to(device=cuda_device))
+            y = Variable(y.to(device=cuda_device))
         
-        _y = model(features)
+        
+        _y = model(X)
         loss = criterion(_y, y)
-
-        loss.backward()
-        optimizer.step()
+        
+        if phase == 'train':
+            loss.backward()
+            optimizer.step()
         epoch_loss += loss_item 
-        if i % 100 == 99: # print loss after 100 batches
-            print('[%d, %5d] loss: %.3f' %
-                  (epoch + 1, i + 1, running_loss / 100))
-            running_loss = 0.0
-    return none
 
-def train(datasets, batch_size, n_epochs, lr, gpu, out_path):
+        if i % 100 == 99: # print loss after 100 batches
+            print('%s: [%d, %5d] loss: %.3f' %
+                  (epoch + 1, i + 1, running_loss / 100, phase))
+            running_loss = 0.0
+    return None
+
+def train(datasets, batch_size, n_epochs, lr, use_cuda, out_path):
     params_train = {
         "batch_size": batch_size,
         "shuffle": True,
@@ -42,7 +47,8 @@ def train(datasets, batch_size, n_epochs, lr, gpu, out_path):
     train_gen = data.DataLoader(datasets['train'], **params_train)
     val_gen   = data.DataLoader(datasets['val'], **params_train)
   
-    cuda_device = cuda.device('cuda' if gpu else 'cpu')
+    cuda_device = cuda.device('cuda' if use_cuda and torch.cuda.is_available() \
+                                     else 'cpu')
 
     model = ConvNet()
     model.to(cuda_device)
@@ -51,9 +57,12 @@ def train(datasets, batch_size, n_epochs, lr, gpu, out_path):
     optimizer = optim.Adam(model.parameters(), lr)
 
     for epoch in range(n_epochs):
-        train_epoch(model, criterion, optimizer, train_gen, cuda_device)
+        train_epoch(model, criterion, optimizer, train_gen, cuda_device, phase='train')
 
         # validation
+        # with torch.set_grad_enabled(False):
+        train_epoch(model, criterion, val_gen, cuda_device, phase='val')
+
         print("Epoch %d/%d - loss: %.3f, val_loss: %.3f" % 
               (epoch + 1, n_epochs, train_loss, val_loss)
 
@@ -118,7 +127,7 @@ def parse_args():
             help="Optimizer learning rate"
         )
         parser.add_argument(
-            "-gpu",
+            "--use_cuda",
             default=False,
             type=bool,
             help="Use current CUDA GPU device if True, CPU if unspecified"
@@ -149,6 +158,6 @@ if __name__ == "__main__":
         args.batch_size,
         args.n_epochs,
         args.lr,
-        args.gpu,
+        args.use_cuda,
         args.out_path
     )

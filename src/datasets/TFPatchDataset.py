@@ -4,6 +4,14 @@ from sklearn.preprocessing import StandardScaler
 from src.datasets.Dataset import Dataset
 
 class TFPatchDataset(Dataset):
+:nt
+:nt
+q
+visual
+q
+visual
+:visual
+§:wq
     """ 
       A data loader for time-frequency patches.
       features2d: list of 2D TF features of (n_frames, n_freq_bins)
@@ -68,10 +76,11 @@ class TFPatchDataset(Dataset):
         return np.maximum(1, int(np.ceil((n_frames - self.patch_len) / self.patch_hop)))
 
     def __getitem__(self, index):
-        features = np.expand_dims(self.features[index], -1)
-        y =  self.labels[idx]
-
-        return features, y
+        sample = {
+            "features": np.expand_dims(self.features[index], -1),
+            "labels": self.labels[idx]
+        }
+        return sample
 
     def __len__(self):  
         return self.num_inst_total
