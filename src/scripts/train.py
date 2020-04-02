@@ -2,40 +2,37 @@ from argparse import ArgumentParser
 
 import numpy as np
 
-
+import torch
+import torch.nn as nn
 from torch.utils.data import DataLoader, random_split
-
 from torch.autograd import Variable
+from torch.optim import Adam  
 
 from src.datasets.TFPatchDataset import TFPatchDataset
 
-from src.models import ConvNet
+from src.models.ConvNet import ConvNet
 
-def train_epoch(model, criterion, optimizer, train_gen, cuda_device, phase=None):
+def train_epoch(model, criterion, optimizer, generator, cuda_device, epoch, phase=None):
     running_loss = 0.0
     model.train()
-    for i, batch in enumerate(train_gen, 0):
-        optimiser.zero_grad()
-
+    for i, batch in enumerate(generator, 0):
+        
+        optimizer.zero_grad()
         X, y = batch["features"], batch["labels"]
+        
+        X = X.to(device=cuda_device)
+        y = y.to(device=cuda_device)
 
-        if cuda_device is not None:
-            X = Variable(X.to(device=cuda_device))
-            y = Variable(y.to(device=cuda_device))
-        
-        
         _y = model(X)
         loss = criterion(_y, y)
         
         if phase == 'train':
             loss.backward()
             optimizer.step()
-        epoch_loss += loss_item 
-
-        if i % 100 == 99: # print loss after 100 batches
-            print('%s: [%d, %5d] loss: %.3f' %
-                  (epoch + 1, i + 1, running_loss / 100, phase))
-            running_loss = 0.0
+        running_loss += loss.item() 
+        # if i % 10 == 9: # print loss after 100 batches
+        print('%s: [%d, %5d] loss: %.10f' %
+                  (phase, epoch + 1, i + 1, running_loss / 10))
     return None
 
 def train(datasets, batch_size, n_epochs, lr, use_cuda, out_path):
@@ -44,27 +41,28 @@ def train(datasets, batch_size, n_epochs, lr, use_cuda, out_path):
         "shuffle": True,
         "num_workers": 6
     }
-    train_gen = data.DataLoader(datasets['train'], **params_train)
-    val_gen   = data.DataLoader(datasets['val'], **params_train)
+    train_gen = DataLoader(datasets['train'], **params_train)
+    val_gen   = DataLoader(datasets['val'], **params_train)
   
-    cuda_device = cuda.device('cuda' if use_cuda and torch.cuda.is_available() \
+    cuda_device = torch.device('cuda' if use_cuda and torch.cuda.is_available() \
                                      else 'cpu')
 
     model = ConvNet()
     model.to(cuda_device)
 
     criterion = nn.BCELoss()
-    optimizer = optim.Adam(model.parameters(), lr)
+    optimizer = Adam(model.parameters(), lr)
 
     for epoch in range(n_epochs):
-        train_epoch(model, criterion, optimizer, train_gen, cuda_device, phase='train')
+        train_epoch(model, criterion, optimizer, train_gen, cuda_device, epoch, phase='train')
 
         # validation
         # with torch.set_grad_enabled(False):
-        train_epoch(model, criterion, val_gen, cuda_device, phase='val')
+        train_epoch(model, criterion, optimizer, val_gen, cuda_device, epoch, phase='val')
 
-        print("Epoch %d/%d - loss: %.3f, val_loss: %.3f" % 
-              (epoch + 1, n_epochs, train_loss, val_loss)
+        print("Epoch %d complete" % epoch)
+        # print("Epoch %d/%d - loss: %.3f, val_loss: %.3f" % 
+          #    (epoch + 1, n_epochs, train_loss, val_loss)
 
 
     print('Finished training')
@@ -74,8 +72,9 @@ def train(datasets, batch_size, n_epochs, lr, use_cuda, out_path):
         torch.save(model.state_dict(), out_path)
             
 
-def get_datasets(feature_dir, labels, patch_len, patch_hop, val_split):
-    dataset = TFPatchDataset(feature_dir, label_dir, patch_len, patch_hop)
+def get_datasets(feature_dir, patch_len, patch_hop, val_split):
+    # get file name bases from csv
+    dataset = TFPatchDataset(feature_dir, patch_len, patch_hop)
 
     dataset_len = len(dataset)
     n_val = int(val_split * dataset_len)
@@ -87,57 +86,59 @@ def get_datasets(feature_dir, labels, patch_len, patch_hop, val_split):
     return datasets
 
 def parse_args():
-    parser = ArgumentParser(
-        parser.add_argument("feature_dir", type=str),
-        parser.add_argument("label_dir", type=str),
-        parser.add_argument(
-            "--patch_len", 
-            default=100, 
-            type=int, 
-            help="input patch length"
-        ),
-        parser.add_argument(
-            "--patch_hop", 
-            default=100, 
-            type=int, 
-            help="input patch overlap"
-        )
-        parser.add_argument(
-            "--batch_size", 
-            default=1, 
-            type=int, 
-            help="training batch size"
-        )
-        parser.add_argument(
-            "--val_split",
-            default=0.1
-            type=float
-            help="Percentage of training data used for validation"
-        )
-        parser.add_argument(
-            "--n_epochs",
-            default=10
-            type=int
-            help="Number of training epochs"
-        )
-        parser.add_argument(
-            "-lr",
-            default=0.01, 
-            type=float,
-            help="Optimizer learning rate"
-        )
-        parser.add_argument(
-            "--use_cuda",
-            default=False,
-            type=bool,
-            help="Use current CUDA GPU device if True, CPU if unspecified"
-        )
-        parser.add_argument(
-            "--out_path",
-            default=None,
-            type=str,
-            help="Path to save the trained model to"
-        )
+    parser = ArgumentParser()
+    parser.add_argument(
+        "feature_dir", type=str, help="path to features .npy files"
+    ),
+    parser.add_argument(
+        "--patch_len", 
+        default=128, 
+        type=int, 
+        help="input patch length"
+    ),
+    parser.add_argument(
+        "--patch_hop", 
+        default=128, 
+        type=int, 
+        help="input patch overlap"
+    ),
+    parser.add_argument(
+        "--batch_size", 
+        default=1, 
+        type=int, 
+        help="training batch size"
+    ),
+    parser.add_argument(
+        "--val_split",
+        default=0.1,
+        type=float,
+        help="Percentage of training data used for validation"
+    ),
+    parser.add_argument(
+        "--n_epochs",
+        default=10,
+        type=int,
+        help="Number of training epochs"
+    ),
+    parser.add_argument(
+        "-lr",
+        default=0.01, 
+        type=float,
+        help="Optimizer learning rate"
+    ),
+    parser.add_argument(
+        "--use_cuda",
+        default=False,
+        type=bool,
+        help="Use current CUDA GPU device if True, CPU if unspecified"
+    ),
+    parser.add_argument(
+        "--out_path",
+        default=None,
+        type=str,
+        help="Path to save the trained model to"
+    )
+    return parser.parse_args()  
 
 if __name__ == "__main__":
     args = parse_args()
@@ -147,10 +148,9 @@ if __name__ == "__main__":
     # model
     datasets = get_datasets(
                   args.feature_dir, 
-                  args.label_dir, 
                   args.patch_len,
                   args.patch_hop,
-                  args.val_split
+                  args.val_split,
               )
 
     train(

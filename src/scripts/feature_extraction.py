@@ -36,19 +36,19 @@ def parse_args():
   parser.add_argument(
       "--win_length",
       type=int,
-      default=2048,
+      default=1024,
       help="FFT window length"
   )
   parser.add_argument(
       "--hop_length",
       type=int,
-      default=512,
+      default=1024,
       help="FFT hop length <= win_len"
   )
   parser.add_argument(
       "-sr",
       type=int,
-      default=16000,
+      default=44100,
       help="Rate to resample audio at (default=16000)"
   )
   parser.add_argument(
@@ -68,14 +68,11 @@ def feature_extraction(target_dir, csv, output_dir, feature, n_fft, win_length, 
     idx = 1
     for entry in os.scandir(target_dir):
         f_path = entry.path
-        if feature == "mel_spec":
-            mel_spec = mel_spectrogram(
+        log_power = feature == "log_mel_spec"
+        mel_spec = mel_spectrogram(
                 f_path, n_fft, win_length, 
-                hop_length, sr, n_mels, log_power=False)
-        if feature == "log_mel_spec":
-             mel_spec = mel_spectrogram(
-                 f_path, n_fft, win_length, 
-                 hop_length, sr, n_mels, log_power=True)
+                hop_length, sr, n_mels, log_power=log_power
+        )
 
         f_name = entry.name   
         f_base, f_ext = os.path.splitext(f_name)
@@ -95,6 +92,9 @@ def feature_extraction(target_dir, csv, output_dir, feature, n_fft, win_length, 
         else:
             print("Failed {0} / {1}: {2}".format(idx, n_files, f_path))
         idx += 1
+
+        if idx == 200:
+            break
 
 if __name__ == "__main__":
     args = parse_args()
