@@ -15,25 +15,29 @@ from src.models.ConvNet import ConvNet
 def train_epoch(model, criterion, optimizer, generator, cuda_device, epoch, phase=None):
     running_loss = 0.0
     model.train()
+    n_batches = 0
     for i, batch in enumerate(generator, 0):
         
         optimizer.zero_grad()
         X, y = batch["features"], batch["labels"]
-        
         X = X.to(device=cuda_device)
         y = y.to(device=cuda_device)
 
         _y = model(X)
-        loss = criterion(_y, y)
+        try:
+          loss = criterion(_y, y)
+        except RuntimeError:
+          import pdb; pdb.set_trace()
         
         if phase == 'train':
             loss.backward()
             optimizer.step()
         running_loss += loss.item() 
         # if i % 10 == 9: # print loss after 100 batches
-        print('%s: [%d, %5d] loss: %.10f' %
-                  (phase, epoch + 1, i + 1, running_loss / 10))
-    return None
+        
+        
+        n_batches += 1
+    return running_loss / n_batches
 
 def train(datasets, batch_size, n_epochs, lr, use_cuda, out_path):
     params_train = {
@@ -41,12 +45,13 @@ def train(datasets, batch_size, n_epochs, lr, use_cuda, out_path):
         "shuffle": True,
         "num_workers": 6
     }
-    train_gen = DataLoader(datasets['train'], **params_train)
-    val_gen   = DataLoader(datasets['val'], **params_train)
+    generators = {
+        'train': DataLoader(datasets['train'], **params_train),
+        'val': DataLoader(datasets['val'], **params_train)
+    }
   
     cuda_device = torch.device('cuda' if use_cuda and torch.cuda.is_available() \
                                      else 'cpu')
-
     model = ConvNet()
     model.to(cuda_device)
 
@@ -54,16 +59,16 @@ def train(datasets, batch_size, n_epochs, lr, use_cuda, out_path):
     optimizer = Adam(model.parameters(), lr)
 
     for epoch in range(n_epochs):
-        train_epoch(model, criterion, optimizer, train_gen, cuda_device, epoch, phase='train')
-
-        # validation
-        # with torch.set_grad_enabled(False):
-        train_epoch(model, criterion, optimizer, val_gen, cuda_device, epoch, phase='val')
+        for phase in ['train', 'val']:
+            loss = train_epoch(
+                model, criterion, optimizer, 
+                generators[phase], cuda_device, epoch, phase
+            )
+            print('%d / %d %s loss: %.5f' % (epoch + 1, n_epochs, phase, loss))  # validation
 
         print("Epoch %d complete" % epoch)
         # print("Epoch %d/%d - loss: %.3f, val_loss: %.3f" % 
           #    (epoch + 1, n_epochs, train_loss, val_loss)
-
 
     print('Finished training')
 

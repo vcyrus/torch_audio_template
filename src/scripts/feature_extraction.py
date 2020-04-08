@@ -4,6 +4,7 @@ Cyrus Vahidi
 src/scripts/feature_extraction.py
 
 Extract features and labels from audio located in target_dir and output to output_dir 
+Default features are log mel spectrograms extracted with Librosa.
 
 This example scripts is for a binary classification task.
 The csv is structured with file name (no extension) in column 'itemid'
@@ -92,9 +93,6 @@ def feature_extraction(target_dir, csv, output_dir, feature, n_fft, win_length, 
         else:
             print("Failed {0} / {1}: {2}".format(idx, n_files, f_path))
         idx += 1
-
-        if idx == 200:
-            break
 
 if __name__ == "__main__":
     args = parse_args()
