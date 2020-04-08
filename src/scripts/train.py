@@ -18,23 +18,18 @@ def train_epoch(model, criterion, optimizer, generator, cuda_device, epoch, phas
     n_batches = 0
     for i, batch in enumerate(generator, 0):
         
-        optimizer.zero_grad()
         X, y = batch["features"], batch["labels"]
         X = X.to(device=cuda_device)
         y = y.to(device=cuda_device)
 
         _y = model(X)
-        try:
-          loss = criterion(_y, y)
-        except RuntimeError:
-          import pdb; pdb.set_trace()
+        loss = criterion(_y, y)
         
         if phase == 'train':
             loss.backward()
             optimizer.step()
+            optimizer.zero_grad()
         running_loss += loss.item() 
-        # if i % 10 == 9: # print loss after 100 batches
-        
         
         n_batches += 1
     return running_loss / n_batches
@@ -64,11 +59,9 @@ def train(datasets, batch_size, n_epochs, lr, use_cuda, out_path):
                 model, criterion, optimizer, 
                 generators[phase], cuda_device, epoch, phase
             )
-            print('%d / %d %s loss: %.5f' % (epoch + 1, n_epochs, phase, loss))  # validation
+            print('%d / %d %s loss: %.5f' % (epoch + 1, n_epochs, phase, loss))
 
         print("Epoch %d complete" % epoch)
-        # print("Epoch %d/%d - loss: %.3f, val_loss: %.3f" % 
-          #    (epoch + 1, n_epochs, train_loss, val_loss)
 
     print('Finished training')
 
@@ -148,9 +141,6 @@ def parse_args():
 if __name__ == "__main__":
     args = parse_args()
     
-    # dataset loader
-    # split datar
-    # model
     datasets = get_datasets(
                   args.feature_dir, 
                   args.patch_len,
