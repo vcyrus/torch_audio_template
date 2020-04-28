@@ -3,7 +3,7 @@ from argparse import ArgumentParser
 def parse_args():
     parser = ArgumentParser()
     parser.add_argument(
-        "audio_path", type=str, help="path to SOL audio"
+        "audio_path", type=str, help="path to dataset"
     ),
     parser.add_argument(
         "--win_length", 
