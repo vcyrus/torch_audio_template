@@ -17,3 +17,5 @@ A boilerplate project for deep learning for audio in PyTorch.
 Example use:
 - `python -m src.scripts.train path_to_sol_db --audio_len=1 --batch_size=64 -lr=0.001 --dropout_rate=0.25 --n_epochs=5 --weight_decay=0.00001 -transform='cqt' --n_bins=84`
 
+- `SOL_DIR/`
+  - `Alto-Sax  Bassoon  Cello  Clarinet  Flute  Guitar  Harp  Horn  Oboe  Trombone  Trumpet  Violin`
