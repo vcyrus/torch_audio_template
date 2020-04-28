@@ -1,15 +1,29 @@
+import os
+
 import torch
 import torch.nn as nn
 from torch.optim import Adam, lr_scheduler
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, random_split
 
 from src.models.SOLCNN import SOLCNN
 
+from src.datasets.SOLDataset import SOLDataset
+
 from src.utils.EarlyStopping import EarlyStopping
 
-def train(datasets, batch_size, n_epochs, lr, cuda_device, out_path, fs,
-          win_length, hop_length, n_bins, n_classes, writer,
-          dropout_rate, weight_decay, audio_len_s): 
+def train(datasets, 
+          batch_size, 
+          n_epochs, 
+          lr, 
+          cuda_device, 
+          fs,
+          model, 
+          optimizer, 
+          writer, 
+          weight_decay, 
+          audio_len_s, 
+          criterion, 
+          patience): 
     '''
       datasets   -> dict of {'train': data.DataLoader, 'val': data.DataLoader}
       batch_size -> int
@@ -37,18 +51,11 @@ def train(datasets, batch_size, n_epochs, lr, cuda_device, out_path, fs,
         'val': DataLoader(datasets['val'], **params_train)
     }
   
-    win_length = int((win_length / 1000) * fs)
-    hop_length = int((hop_length / 1000) * fs)
-    model = SOLCNN(
-                fs, win_length, hop_length, n_bins, n_classes, 
-                dropout_rate, audio_len_s
-            )
     model.to(cuda_device)
 
     criterion = nn.CrossEntropyLoss()
     optimizer = Adam(model.parameters(), lr, weight_decay=weight_decay)
     scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.3)
-    patience = 5
     early_stopping = EarlyStopping(patience=patience, verbose=True)
 
     for epoch in range(n_epochs):
@@ -71,8 +78,6 @@ def train(datasets, batch_size, n_epochs, lr, cuda_device, out_path, fs,
     print('Finished training')
     print('------------------------------')
     # Save the model
-    if out_path:
-        torch.save(model.state_dict(), out_path)
 
     return model, criterion
 
@@ -111,3 +116,21 @@ def log(epoch, n_epochs, phase, loss, writer):
     print('%d / %d %s loss: %.5f' % (epoch , n_epochs, phase, loss))
     
     writer.add_scalar('Loss/{}'.format(phase), loss, epoch)
+
+def get_datasets(path, fs, audio_len_s, val_split, test_split):
+    # SOL dataset label, assumes subdirectories are labels
+    label_to_int = {
+      label: idx for idx, label in enumerate(os.listdir(path))
+    }
+    # get file name bases from csv
+    dataset = SOLDataset(path, label_to_int, fs=fs, audio_len=audio_len_s)
+
+    dataset_len = len(dataset)
+    n_val = int(val_split * dataset_len)
+    n_test = int(test_split * dataset_len)
+    n_train = dataset_len - n_val - n_test
+  
+    train_data, val_data, test_data = random_split(dataset, [n_train, n_val, n_test])
+
+    datasets = {'train': train_data, 'val': val_data, 'test': test_data}
+    return datasets, label_to_int
