@@ -1,10 +1,13 @@
 # Torch Audio Boilerplate
-- A boilerplate project for deep learning for audio in PyTorch.
-- Currently supports:
-  - loading mel spectrogram and CQT on the fly with nnAudio
-  - Single class classification e.g SOLdb instrument classification
-  - Assumes dataset is provided as raw audio files, where subdirectories in the path to the dataset are grouped by label and named as the containing files' label
+A boilerplate project for deep learning for audio in PyTorch.
+
+## Notes
 - For now this is designed for personal and colleague use.
+
+- Currently supports:
+  - Loading mel spectrogram and CQT on the fly with nnAudio
+  - Single class classification e.g SOL-DB instrument classification
+  - Assumes that the dataset is provided as raw audio files, where subdirectories in the path to the dataset are grouped by label and named as the containing files' label
 
 ## Installation
 - `git clone`
